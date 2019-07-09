@@ -14,11 +14,11 @@ Trying to answere the question:
 1. Install sdkman: <https://sdkman.io/install>
 2. Install groovy: `sdk install groovy` (developed with groovy-2.5.7)\
 3. Install mongodb: <https://docs.mongodb.com/manual/tutorial/install-mongodb-enterprise-on-os-x/> (developed with mongo-4.0.0)
-4. you might really like robo-mongo: <https://robomongo.org/download>
+4. You might really like robo-mongo (aka Robo 3T): <https://robomongo.org/download>
 
 
 ## Running & Testing ##
 
-Start the api with `groovy mtm-api.groovy'
+Start the api with `groovy mtm-api.groovy`
 
 ...and the `test-scripts` dir has what you would expect.
