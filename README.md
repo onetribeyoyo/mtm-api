@@ -16,6 +16,9 @@ Trying to answere the question:
 3. Install mongodb: <https://docs.mongodb.com/manual/tutorial/install-mongodb-enterprise-on-os-x/> (developed with mongo-4.0.0)
 4. you might really like robo-mongo: <https://robomongo.org/download>
 
+
+## Running & Testing ##
+
 Start the api with `groovy mtm-api.groovy'
 
 ...and the `test-scripts` dir has what you would expect.
