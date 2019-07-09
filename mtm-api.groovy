@@ -71,17 +71,23 @@ ratpack {
                     }
                 }
                 patch {
+                    response.status(Status.NOT_IMPLEMENTED)
                     render "TODO: PATCH product/:productId NOT IMPLEMENTED"
                 }
                 post {
                     context.parse(Jackson.fromJson(Map)).then { data ->
                         Product p = new Product(name:data.name)
-                        // TODO: validation!!!!
-                        p.save(flush:true)
-                        render "/product/${p.id}"
+                        if (!p.validate()) {
+                            response.status(Status.UNPROCESSABLE_ENTITY)
+                            render p.errors.allErrors.collect { it }
+                        } else {
+                            p.save(flush:true)
+                            render "/product/${p.id}"
+                        }
                     }
                 }
                 put {
+                    response.status(Status.NOT_IMPLEMENTED)
                     render "TODO: PUT product/:productId NOT IMPLEMENTED"
                 }
             }
@@ -97,6 +103,10 @@ ratpack {
 class Product {
     ObjectId id
     String name
+
+    static constraints = {
+        name size: 5..42, blank: false, unique: true
+    }
 
     def toMap() {
         [
