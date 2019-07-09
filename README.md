@@ -21,4 +21,4 @@ Trying to answere the question:
 
 Start the api with `groovy mtm-api.groovy`
 
-...and the `test-scripts` dir has what you would expect.
+...and the `./test-scripts` is what the dir name suggests.
