@@ -16,11 +16,13 @@ import org.bson.types.ObjectId
 
 def datastore = new MongoDatastore(Product)
 
+//~ --------------------------------------------------------------------------------------------
+
 ratpack {
 
     handlers {
 
-        // --------------------------------------------------------------------------------------------
+        //~ --------------------------------------------------------------------------------------------
 
         //
         // health check / heart beat
@@ -30,17 +32,18 @@ ratpack {
             render "MTM API's are alive"
         }
 
-        // --------------------------------------------------------------------------------------------
+        //~ --------------------------------------------------------------------------------------------
 
-        //
-        // product api
-        //
         get("product/count") {
+            logHandler(request)
             Long count = Product.count()
             render json(count)
         }
 
+        //~ --------------------------------------------------------------------------------------------
+
         get("products") {
+            logHandler(request)
             // GORM supports paginiation; e.g. `products ? offset=2 & max=3`.
             Long offset = request.queryParams.offset?.toLong() ?: 0
             Long max = request.queryParams.max?.toLong() ?: 10
@@ -48,9 +51,37 @@ ratpack {
             render json( products?.collect{ product -> product.toMap() } )
         }
 
+        //~ --------------------------------------------------------------------------------------------
+
+        path("product") {
+            byMethod {
+                post {
+                    logHandler(request)
+                    context.parse(Jackson.fromJson(Map)).then { data ->
+                        if (Product.countByName(data.name)) {
+                            response.status(Status.UNPROCESSABLE_ENTITY) // 422
+                            response.headers.add("X-Status-Reason", "Validation failed")
+                            render "Product with that name already exits."
+                        } else {
+                            Product p = new Product()
+                            p.id = new ObjectId()
+                            p.name = data.name
+                            p.save(flush:true)
+                            println p.toMap()
+                            render json ( p.toMap() )
+                            //render "/product/${p.id}"
+                        }
+                    }
+                }
+            }
+        }
+
+        //~ --------------------------------------------------------------------------------------------
+
         path("product/:productId") {
             byMethod {
                 delete {
+                    logHandler(request)
                     def product = Product.get(new ObjectId(pathTokens.productId))
                     if (product) {
                         product.delete(flush:true)
@@ -62,6 +93,7 @@ ratpack {
                     }
                 }
                 get {
+                    logHandler(request)
                     def product = Product.get(pathTokens.productId)
                     if (product) {
                         render json(product.toMap())
@@ -71,22 +103,12 @@ ratpack {
                     }
                 }
                 patch {
+                    logHandler(request)
                     response.status(Status.NOT_IMPLEMENTED)
                     render "TODO: PATCH product/:productId NOT IMPLEMENTED"
                 }
-                post {
-                    context.parse(Jackson.fromJson(Map)).then { data ->
-                        Product p = new Product(name:data.name)
-                        if (!p.validate()) {
-                            response.status(Status.UNPROCESSABLE_ENTITY)
-                            render p.errors.allErrors.collect { it }
-                        } else {
-                            p.save(flush:true)
-                            render "/product/${p.id}"
-                        }
-                    }
-                }
                 put {
+                    logHandler(request)
                     response.status(Status.NOT_IMPLEMENTED)
                     render "TODO: PUT product/:productId NOT IMPLEMENTED"
                 }
@@ -97,7 +119,22 @@ ratpack {
 
 }
 
-// --------------------------------------------------------------------------------------------
+
+//~ --------------------------------------------------------------------------------------------
+
+void logHandler(def request) {
+    println ">>> ----------------------------------------------------------------"
+    println ">>> ${request.method} ${request.rawUri}"
+    request.headers.names.each { header ->
+        println ">>>    ${header}: ${request.headers.get(header)}"
+    }
+}
+
+
+
+
+
+//~ --------------------------------------------------------------------------------------------
 
 @Entity
 class Product {
@@ -116,4 +153,4 @@ class Product {
     }
 }
 
-// --------------------------------------------------------------------------------------------
+//~ --------------------------------------------------------------------------------------------

@@ -1,5 +1,10 @@
+.DS_Store
+*~
+
 .gradle
 /build/
+/data/
+/test-scripts/test-tmp/
 
 # Ignore Gradle GUI config
 gradle-app.setting

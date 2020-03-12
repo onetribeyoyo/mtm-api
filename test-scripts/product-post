@@ -1,0 +1,24 @@
+
+PRODUCT_NAME=$1
+
+
+generate_post_data()
+{
+  cat <<EOF
+{
+  "name": "$PRODUCT_NAME"
+}
+EOF
+}
+
+#echo "=================================================="
+#echo "$(generate_post_data)"
+#echo "=================================================="
+
+curl -i \
+     --header "Accept:application/json" \
+     --header "Content-Type:application/json" \
+     --request POST \
+     --data "$(generate_post_data)" \
+     --verbose \
+     "http://localhost:5050/product"
