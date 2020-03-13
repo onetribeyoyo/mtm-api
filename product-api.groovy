@@ -21,14 +21,17 @@ import org.bson.types.ObjectId
 
 
 //~ --------------------------------------------------------------------------------------------
+//~ config
 
 // TODO: externalize server and DB params
 def mongo = new MongoService("localhost", 27017, "test")
 
-int DEFAULT_OFFSET = 0
-int DEFAULT_PAGESIZE = 10
 
 //~ --------------------------------------------------------------------------------------------
+//~ the api
+
+int DEFAULT_PAGE_OFFSET = 0
+int DEFAULT_PAGE_SIZE = 10
 
 ratpack {
 
@@ -56,8 +59,8 @@ ratpack {
         get("products") {
             log(request)
 
-            int offset = request.queryParams.offset?.toInt() ?: DEFAULT_OFFSET
-            int pageSize = request.queryParams.max?.toInt() ?: DEFAULT_PAGESIZE
+            int offset = request.queryParams.offset?.toInt() ?: DEFAULT_PAGE_OFFSET
+            int pageSize = request.queryParams.max?.toInt() ?: DEFAULT_PAGE_SIZE
 
             def productData = new ProductCollection(mongo).findAll(offset, pageSize)
             render json( productData )
@@ -127,9 +130,6 @@ ratpack {
 
 }
 
-
-//~ --------------------------------------------------------------------------------------------
-
 void log(def request) {
     println ">>> ----------------------------------------------------------------"
     println ">>> ${request.method} ${request.rawUri}"
@@ -138,7 +138,9 @@ void log(def request) {
     }
 }
 
+
 //~ --------------------------------------------------------------------------------------------
+//~ mongo utilities
 
 class MongoService {
     String host
@@ -164,20 +166,15 @@ class MongoService {
 
 }
 
-//~ --------------------------------------------------------------------------------------------
-
-class ProductCollection {
+abstract class MongoEntity {
 
     MongoService mongo
 
-    ProductCollection(MongoService mongo) {
+    MongoEntity(MongoService mongo) {
         this.mongo = mongo
     }
 
-    MongoCollection collection() {
-        mongo.collection("product")
-    }
-
+    abstract MongoCollection collection()
 
     //~ generic methods ------------------------------------------------------------------------
 
@@ -218,7 +215,6 @@ class ProductCollection {
 
     // TODO: findAllBy(String field, def value) & optional offset+pageSize
 
-
     //~ ID methods -----------------------------------------------------------------------------
 
     boolean deleteById(String id) {
@@ -247,8 +243,27 @@ class ProductCollection {
         }
     }
 
+    //~ entity field methods -------------------------------------------------------------------
 
-    //~ field methods --------------------------------------------------------------------------
+    abstract def insert(Map data)
+    abstract Map toMap(def data)
+}
+
+
+//~ --------------------------------------------------------------------------------------------
+//~ entities
+
+class ProductCollection extends MongoEntity {
+
+    ProductCollection(MongoService mongo) {
+        super(mongo)
+    }
+
+    MongoCollection collection() {
+        mongo.collection("product")
+    }
+
+    //~ entity field methods -------------------------------------------------------------------
 
     Long countByName(def value) {
         countBy("name", value)
