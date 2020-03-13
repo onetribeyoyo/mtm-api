@@ -1,6 +1,6 @@
+#!/bin/sh
 
 PRODUCT_NAME=$1
-
 
 generate_post_data()
 {
@@ -15,10 +15,9 @@ EOF
 #echo "$(generate_post_data)"
 #echo "=================================================="
 
-curl -i \
+#curl -i \
+curl \
      --header "Accept:application/json" \
      --header "Content-Type:application/json" \
-     --request POST \
      --data "$(generate_post_data)" \
-     --verbose \
      "http://localhost:5050/product"

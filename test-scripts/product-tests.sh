@@ -1,4 +1,4 @@
-
+#!/bin/sh
 
 REPORT_DIR=test-tmp
 if [ ! -d $REPORT_DIR ]; then

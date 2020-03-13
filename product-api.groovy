@@ -47,7 +47,7 @@ ratpack {
 
         get("product/count") {
             log(request)
-            render json( Product.count(mongo) )
+            render json( new ProductCollection(mongo).count() )
         }
 
         //~ --------------------------------------------------------------------------------------------
@@ -58,7 +58,7 @@ ratpack {
             int offset = request.queryParams.offset?.toInt() ?: DEFAULT_OFFSET
             int pageSize = request.queryParams.max?.toInt() ?: DEFAULT_PAGESIZE
 
-            def productData = Product.all(mongo, offset, pageSize)
+            def productData = new ProductCollection(mongo).all(offset, pageSize)
             render json( productData )
         }
 
@@ -70,20 +70,15 @@ ratpack {
                     log(request)
                     context.parse(Jackson.fromJson(Map)).then { data ->
 
-                        MongoCollection products = Product.collection(mongo)
+                        ProductCollection products = new ProductCollection(mongo)
 
-                        //def existingProduct = products.find(eq("name", data.name)).first()
-                        def existingProduct = Products.get.find(eq("name", data.name)).first()
-                        if (existingProduct) {
+                        if (products.countByName(data.name)) {
                             response.status(Status.UNPROCESSABLE_ENTITY) // 422
                             response.headers.add("X-Status-Reason", "Validation failed")
                             render "Product with that name already exits."
 
                         } else {
-                            Document doc = new Document()
-                                .append("_id", ObjectId.get())
-                                .append("name", data.name)
-                            products.insertOne(doc)
+                            def doc = products.insert(data)
                             render doc.toJson()
                         }
                     }
@@ -97,12 +92,16 @@ ratpack {
             byMethod {
                 delete {
                     log(request)
-                    response.status(Status.NOT_IMPLEMENTED)
-                    render "TODO: DELETE product/:productId NOT IMPLEMENTED"
+                    if (new ProductCollection(mongo).delete(pathTokens.productId)) {
+                        render "deleted ${pathTokens.productId}"
+                    } else {
+                        response.status(Status.NOT_FOUND)
+                        render "${response.status.code}"
+                    }
                 }
                 get {
                     log(request)
-                    def product = Product.get(mongo, pathTokens.productId)
+                    def product = new ProductCollection(mongo).get(pathTokens.productId)
                     if (product) {
                         render json( product )
                     } else {
@@ -166,24 +165,71 @@ class MongoService {
 
 //~ --------------------------------------------------------------------------------------------
 
-class Product {
+class ProductCollection {
+
+    MongoService mongo
+
+    ProductCollection(MongoService mongo) {
+        this.mongo = mongo
+    }
 
     // TODO: validation?
 
-    static MongoCollection collection(MongoService mongo) {
+    MongoCollection collection() {
         mongo.collection("product")
     }
 
-    static Long count(MongoService mongo) {
-        collection(mongo).countDocuments()
+    Long count() {
+        collection().countDocuments()
     }
 
-    static def countBy(MongoService mongo, String field, def value) {
-        collection(mongo).countDocuments(eq(field, value))
+    Long countByName(def value) {
+        countBy("name", value)
     }
 
-    static def get(MongoService mongo, String id) {
-        def obj = collection(mongo).find(eq("_id", new ObjectId(id))).first()
+    def countBy(String field, def value) {
+        collection().countDocuments(eq(field, value))
+    }
+
+    def get(String id) {
+        try {
+            ObjectId objId = new ObjectId(id)
+            def obj = collection().find(eq("_id", objId)).first()
+            if (obj) {
+                toMap(obj)
+            } else {
+                null
+            }
+        }
+        catch (IllegalArgumentException ex) {
+            return null
+        }
+    }
+
+    boolean delete(String id) {
+        println 1
+        try {
+            println 2
+            ObjectId objId = new ObjectId(id)
+            println "id --> ${id}"
+            println "objId --> ${objId}"
+            def result = collection().deleteMany(eq("_id", objectid))
+            println "result.deletedCount --> ${result.deletedCount}"
+            println 3
+            return (result.deletedCount as boolean)
+        }
+        catch (IllegalArgumentException ex) {
+            println 4
+            return false
+        }
+    }
+
+    def getByName(def value) {
+        getBy("name", value)
+    }
+
+    def getBy(String field, def value) {
+        def obj = collection().find(eq(field, value)).first()
         if (obj) {
             toMap(obj)
         } else {
@@ -191,27 +237,14 @@ class Product {
         }
     }
 
-    static def getByName(MongoService mongo, def value) {
-        getBy(mongo, "name", value)
-    }
-
-    static def getBy(MongoService mongo, String field, def value) {
-        def obj = collection(mongo).find(eq(field, value)).first()
-        if (obj) {
-            toMap(obj)
-        } else {
-            null
-        }
-    }
-
-    static def all(MongoService mongo, int offset, int pageSize) {
+    def all(int offset, int pageSize) {
         def objs
         if (offset) {
             // WARNING: for large collections, this skip() method may be expensive; it requires the server
             // to walk from the start of the collection/cursor before beginning to return results.
-            objs = collection(mongo).find().skip(offset).limit(pageSize)
+            objs = collection().find().skip(offset).limit(pageSize)
         } else {
-            objs = collection(mongo).find().limit(pageSize)
+            objs = collection().find().limit(pageSize)
         }
 
         objs.collect { obj ->
@@ -220,7 +253,15 @@ class Product {
         }
     }
 
-    static Map toMap(def data) {
+    def insert(Map data) {
+        Document doc = new Document()
+            .append("_id", ObjectId.get())
+            .append("name", data.name)
+        collection().insertOne(doc)
+        return doc
+    }
+
+    Map toMap(def data) {
         [
             "_id":  data._id.toString(),
             "name": data.name
