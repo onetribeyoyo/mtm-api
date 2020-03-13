@@ -16,6 +16,7 @@ import com.mongodb.client.MongoDatabase
 import static com.mongodb.client.model.Filters.*
 
 import org.bson.Document
+import org.bson.conversions.Bson
 import org.bson.types.ObjectId
 
 
@@ -58,7 +59,7 @@ ratpack {
             int offset = request.queryParams.offset?.toInt() ?: DEFAULT_OFFSET
             int pageSize = request.queryParams.max?.toInt() ?: DEFAULT_PAGESIZE
 
-            def productData = new ProductCollection(mongo).all(offset, pageSize)
+            def productData = new ProductCollection(mongo).findAll(offset, pageSize)
             render json( productData )
         }
 
@@ -92,7 +93,7 @@ ratpack {
             byMethod {
                 delete {
                     log(request)
-                    if (new ProductCollection(mongo).delete(pathTokens.productId)) {
+                    if (new ProductCollection(mongo).deleteById(pathTokens.productId)) {
                         render "deleted ${pathTokens.productId}"
                     } else {
                         response.status(Status.NOT_FOUND)
@@ -101,7 +102,7 @@ ratpack {
                 }
                 get {
                     log(request)
-                    def product = new ProductCollection(mongo).get(pathTokens.productId)
+                    def product = new ProductCollection(mongo).find(pathTokens.productId)
                     if (product) {
                         render json( product )
                     } else {
@@ -173,71 +174,23 @@ class ProductCollection {
         this.mongo = mongo
     }
 
-    // TODO: validation?
-
     MongoCollection collection() {
         mongo.collection("product")
     }
+
+
+    //~ generic methods ------------------------------------------------------------------------
 
     Long count() {
         collection().countDocuments()
     }
 
-    Long countByName(def value) {
-        countBy("name", value)
+    Long countBy(String field, def value) {
+        Bson filter = eq(field, value)
+        collection().countDocuments(filter)
     }
 
-    def countBy(String field, def value) {
-        collection().countDocuments(eq(field, value))
-    }
-
-    def get(String id) {
-        try {
-            ObjectId objId = new ObjectId(id)
-            def obj = collection().find(eq("_id", objId)).first()
-            if (obj) {
-                toMap(obj)
-            } else {
-                null
-            }
-        }
-        catch (IllegalArgumentException ex) {
-            return null
-        }
-    }
-
-    boolean delete(String id) {
-        println 1
-        try {
-            println 2
-            ObjectId objId = new ObjectId(id)
-            println "id --> ${id}"
-            println "objId --> ${objId}"
-            def result = collection().deleteMany(eq("_id", objectid))
-            println "result.deletedCount --> ${result.deletedCount}"
-            println 3
-            return (result.deletedCount as boolean)
-        }
-        catch (IllegalArgumentException ex) {
-            println 4
-            return false
-        }
-    }
-
-    def getByName(def value) {
-        getBy("name", value)
-    }
-
-    def getBy(String field, def value) {
-        def obj = collection().find(eq(field, value)).first()
-        if (obj) {
-            toMap(obj)
-        } else {
-            null
-        }
-    }
-
-    def all(int offset, int pageSize) {
+    def findAll(int offset, int pageSize) {
         def objs
         if (offset) {
             // WARNING: for large collections, this skip() method may be expensive; it requires the server
@@ -251,6 +204,58 @@ class ProductCollection {
             // TODO: there has got to be a better way to get this ready for response as json!
             toMap(obj)
         }
+    }
+
+    def findBy(String field, def value) {
+        Bson filter = eq(field, value)
+        def obj = collection().find(filter).first()
+        if (obj) {
+            toMap(obj)
+        } else {
+            null
+        }
+    }
+
+    // TODO: findAllBy(String field, def value) & optional offset+pageSize
+
+
+    //~ ID methods -----------------------------------------------------------------------------
+
+    boolean deleteById(String id) {
+        try {
+            ObjectId objId = new ObjectId(id)
+            def result = collection().deleteOne(new Document("_id", objId))
+            return (result.deletedCount as boolean)
+        }
+        catch (IllegalArgumentException ex) { // illegal id value
+            return false
+        }
+    }
+
+    def findById(String id) {
+        try {
+            Bson filter = eq("_id", new ObjectId(id))
+            def obj = collection().find(filter).first()
+            if (obj) {
+                toMap(obj)
+            } else {
+                null
+            }
+        }
+        catch (IllegalArgumentException ex) { // illegal id value
+            return null
+        }
+    }
+
+
+    //~ field methods --------------------------------------------------------------------------
+
+    Long countByName(def value) {
+        countBy("name", value)
+    }
+
+    def findByName(def value) {
+        findBy("name", value)
     }
 
     def insert(Map data) {
@@ -267,6 +272,9 @@ class ProductCollection {
             "name": data.name
         ]
     }
+
+    // TODO: validation?
+
 }
 
 //~ --------------------------------------------------------------------------------------------
